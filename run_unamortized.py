@@ -9,6 +9,7 @@ from codebase.train import train
 from pprint import pprint
 from torchvision import datasets, transforms
 from torch import optim
+from copy import deepcopy
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--z',         type=int, default=10,    help="Number of latent dimensions")
@@ -26,25 +27,20 @@ model_name = '_'.join([t.format(v) for (t, v) in layout])
 pprint(vars(args))
 print('Model name:', model_name)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 train_loader, labeled_subset, _ = ut.get_mnist_data(device, use_test_subset=True)
 vae = VAE(z_dim=args.z, name=model_name).to(device)
 ut.load_model_by_name(vae, global_step=args.iter_max, device=device)
-x= labeled_subset[0]
-with torch.no_grad():
-    m,v = vae.enc(x)
-# vae.train()
-m.requires_grad = True
-optimizer = optim.Adam([m], lr=1e-3)
-for i in range(100):
-    loss, summary = vae.loss_unamortized(x, m, v)
-    print(vae.loss(x), "**")
-    print(summary['train/loss'])
-    print(loss, "************")
-    loss.backward()
-    vae.zero_grad()
-    optimizer.step()
-    optimizer.zero_grad()
-    # m.zero_grad()
+x= labeled_subset[0].to(device)
+
+train(model=vae,
+          train_loader=train_loader,
+          labeled_subset=labeled_subset,
+          device=device,
+          tqdm=tqdm.tqdm,
+          writer=writer,
+          iter_max=args.iter_max,
+          iter_save=args.iter_save)
 
 # ut.evaluate_lower_bound(vae, labeled_subset, run_iwae=True)

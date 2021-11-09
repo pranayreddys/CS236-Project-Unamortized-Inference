@@ -40,7 +40,8 @@ class VAE(nn.Module):
         #
         # Outputs should all be scalar
         ################################################################################
-        m,v = self.enc(x)
+        # m,v = self.enc(x)
+        m, v = ut.get_function(x)
         kl = ut.kl_normal(m,v,self.z_prior_m, self.z_prior_v).mean()
         z = ut.sample_gaussian(m,v)
         rec = -ut.log_bernoulli_with_logits(x, self.dec(z)).mean()
