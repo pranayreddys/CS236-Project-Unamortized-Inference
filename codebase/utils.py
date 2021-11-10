@@ -25,14 +25,17 @@ bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 # what you're doing
 ################################################################################
 
-def get_function(x, vae):
+
+
+def get_function(x, vae, idx, max_iter = 1000):
     with torch.no_grad():
         m,v = vae.enc(x)
+        if vae.training:
+            m = vae.cache[idx: idx+len(x)]
     m.requires_grad = True
     optimizer = optim.Adam([m], lr=1e-3)
     # print("Here")
-    for i in range(100):
-        # print("THERE")
+    for i in range(max_iter):
         loss, summary = vae.loss_unamortized(x, m, v)
         # print(summary['train/loss'])
         # print(loss, "************")
@@ -40,6 +43,9 @@ def get_function(x, vae):
         vae.zero_grad()
         optimizer.step()
         optimizer.zero_grad()
+    
+    with torch.no_grad():
+        vae.cache[idx: idx+len(x)] = m
 
     return m, v
 
@@ -59,7 +65,7 @@ def sample_gaussian(m, v):
     # TODO: Modify/complete the code here
     # Sample z
     ################################################################################
-    z = m + torch.sqrt(v)*torch.normal(0, 1, size=(m.shape))
+    z = m + torch.sqrt(v)*(torch.normal(0, 1, size=(m.shape)).to(m.device))
     ################################################################################
     # End of code modification
     ################################################################################
@@ -356,10 +362,11 @@ def reset_weights(m):
 
 def get_mnist_data(device, use_test_subset=True):
     preprocess = transforms.ToTensor()
+    data_train = datasets.MNIST('data', train=True, download=True, transform=preprocess)
     train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('data', train=True, download=True, transform=preprocess),
+        data_train,
         batch_size=97,  # Using a weird batch size to prevent students from hard-coding
-        shuffle=True)
+        shuffle=False)
     test_loader = torch.utils.data.DataLoader(
         datasets.MNIST('data', train=False, download=True, transform=preprocess),
         batch_size=97,
@@ -392,7 +399,7 @@ def get_mnist_data(device, use_test_subset=True):
     yl = torch.cat(yl).to(device)
     yl = yl.new(np.eye(10)[yl.cpu()]).to(device)
     labeled_subset = (xl, yl)
-    return train_loader, labeled_subset, (X_test, y_test)
+    return train_loader, labeled_subset, (X_test, y_test), len(data_train)
 
 
 def static_binarize(x):

@@ -19,6 +19,7 @@ def train(model, train_loader, labeled_subset, device, tqdm, writer,
     i = 0
     with tqdm(total=iter_max) as pbar:
         while True:
+            my_idx= 0
             for batch_idx, (xu, yu) in enumerate(train_loader):
                 i += 1 # i is num of gradient steps taken by end of loop iteration
                 optimizer.zero_grad()
@@ -26,7 +27,8 @@ def train(model, train_loader, labeled_subset, device, tqdm, writer,
                 if y_status == 'none':
                     xu = torch.bernoulli(xu.to(device).reshape(xu.size(0), -1))
                     yu = yu.new(np.eye(10)[yu]).to(device).float()
-                    loss, summaries = model.loss(xu)
+                    loss, summaries = model.loss(xu, my_idx)
+                    my_idx += xu.size(0)
 
                 elif y_status == 'semisup':
                     xu = torch.bernoulli(xu.to(device).reshape(xu.size(0), -1))
@@ -47,7 +49,7 @@ def train(model, train_loader, labeled_subset, device, tqdm, writer,
                     # xu is not bernoulli for SVHN
                     xu = xu.to(device).reshape(xu.size(0), -1)
                     yu = yu.new(np.eye(10)[yu]).to(device).float()
-                    loss, summaries = model.loss(xu, yu)
+                    loss, summaries = model.loss(xu, y)
 
                 loss.backward()
                 optimizer.step()

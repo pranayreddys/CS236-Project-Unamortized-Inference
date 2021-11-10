@@ -14,13 +14,25 @@ class VAE(nn.Module):
         nn = getattr(nns, nn)
         self.enc = nn.Encoder(self.z_dim)
         self.dec = nn.Decoder(self.z_dim)
+        self.device  = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    
 
         # Set prior as fixed parameter attached to Module
         self.z_prior_m = torch.nn.Parameter(torch.zeros(1), requires_grad=False)
         self.z_prior_v = torch.nn.Parameter(torch.ones(1), requires_grad=False)
         self.z_prior = (self.z_prior_m, self.z_prior_v)
+    
+    def initialize_cache(self, loader, data_len):
+        self.cache = torch.zeros(data_len, self.z_dim).to(self.device)
+        idx = 0
+        for batch, _ in loader:
+            batch = torch.bernoulli(batch.to(self.device).reshape(batch.size(0), -1))
+            with torch.no_grad():
+                self.cache[idx:idx+len(batch)], _ = self.enc(batch)
+            idx += len(batch)
 
-    def negative_elbo_bound(self, x):
+    def negative_elbo_bound(self, x, ind):
         """
         Computes the Evidence Lower Bound, KL and, Reconstruction costs
 
@@ -41,7 +53,7 @@ class VAE(nn.Module):
         # Outputs should all be scalar
         ################################################################################
         # m,v = self.enc(x)
-        m, v = ut.get_function(x, self)
+        m, v = ut.get_function(x, self, ind)
         kl = ut.kl_normal(m,v,self.z_prior_m, self.z_prior_v).mean()
         z = ut.sample_gaussian(m,v)
         rec = -ut.log_bernoulli_with_logits(x, self.dec(z)).mean()
@@ -119,8 +131,8 @@ class VAE(nn.Module):
         ################################################################################
         return niwae, kl, rec
 
-    def loss(self, x):
-        nelbo, kl, rec = self.negative_elbo_bound(x)
+    def loss(self, x, ind):
+        nelbo, kl, rec = self.negative_elbo_bound(x, ind)
         loss = nelbo
 
         summaries = dict((

@@ -29,11 +29,12 @@ model_name = '_'.join([t.format(v) for (t, v) in layout])
 pprint(vars(args))
 print('Model name:', model_name)
 
-device = torch.device('cpu')
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-train_loader, labeled_subset, _ = ut.get_mnist_data(device, use_test_subset=True)
+#device = torch.device('cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+train_loader, labeled_subset, _, data_len = ut.get_mnist_data(device, use_test_subset=True)
 vae = VAE(z_dim=args.z, name=model_name).to(device)
 ut.load_model_by_name(vae, global_step=args.iter_max, device=device)
+vae.initialize_cache(train_loader, data_len)
 x= labeled_subset[0].to(device)
 
 writer = None
