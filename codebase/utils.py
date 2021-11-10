@@ -10,6 +10,7 @@ from codebase.models.ssvae import SSVAE
 from codebase.models.vae import VAE
 from torch.nn import functional as F
 from torchvision import datasets, transforms
+from torch import optim
 
 bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 
@@ -23,6 +24,25 @@ bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 # pass in inputs that violate the expected argument_shape provided you know
 # what you're doing
 ################################################################################
+
+def get_function(x, vae):
+    with torch.no_grad():
+        m,v = vae.enc(x)
+    m.requires_grad = True
+    optimizer = optim.Adam([m], lr=1e-3)
+    # print("Here")
+    for i in range(100):
+        # print("THERE")
+        loss, summary = vae.loss_unamortized(x, m, v)
+        # print(summary['train/loss'])
+        # print(loss, "************")
+        loss.backward()
+        vae.zero_grad()
+        optimizer.step()
+        optimizer.zero_grad()
+
+    return m, v
+
 
 def sample_gaussian(m, v):
     """

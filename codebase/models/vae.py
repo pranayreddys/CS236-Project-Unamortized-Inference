@@ -41,11 +41,12 @@ class VAE(nn.Module):
         # Outputs should all be scalar
         ################################################################################
         # m,v = self.enc(x)
-        m, v = ut.get_function(x)
+        m, v = ut.get_function(x, self)
         kl = ut.kl_normal(m,v,self.z_prior_m, self.z_prior_v).mean()
         z = ut.sample_gaussian(m,v)
         rec = -ut.log_bernoulli_with_logits(x, self.dec(z)).mean()
         nelbo = rec + kl
+        print("Final nelbo is ", nelbo)
 
         ################################################################################
         # End of code modification
@@ -132,7 +133,7 @@ class VAE(nn.Module):
         return loss, summaries
     
     def loss_unamortized(self, x, m, v):
-        nelbo, kl, rec = self.unamortized_inference(x, m , v)
+        nelbo, kl, rec = self.unamortized_inference(x, m, v)
         loss = nelbo
 
         summaries = dict((
