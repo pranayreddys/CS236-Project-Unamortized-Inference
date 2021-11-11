@@ -30,8 +30,8 @@ bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 def get_function(x, vae, idx, max_iter = 1000):
     with torch.no_grad():
         m,v = vae.enc(x)
-        if vae.training:
-            m = vae.cache[idx: idx+len(x)]
+        # if vae.training:
+        #     m = vae.cache[idx: idx+len(x)]
     m.requires_grad = True
     optimizer = optim.Adam([m], lr=1e-3)
     # print("Here")
@@ -44,8 +44,8 @@ def get_function(x, vae, idx, max_iter = 1000):
         optimizer.step()
         optimizer.zero_grad()
     
-    with torch.no_grad():
-        vae.cache[idx: idx+len(x)] = m
+    # with torch.no_grad():
+    #     vae.cache[idx: idx+len(x)] = m
 
     return m, v
 

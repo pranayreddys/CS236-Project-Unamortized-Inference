@@ -5,6 +5,7 @@ import torch
 import tqdm
 from codebase import utils as ut
 from codebase.models.vae import VAE
+from codebase.models.gmvae import GMVAE
 from codebase.train import train
 from pprint import pprint
 from torchvision import datasets, transforms
@@ -18,13 +19,23 @@ parser.add_argument('--iter_save', type=int, default=10000, help="Save model eve
 parser.add_argument('--run',       type=int, default=0,     help="Run ID. In case you want to run replicates")
 parser.add_argument('--overwrite', type=int, default=0,     help="Flag for overwriting")
 parser.add_argument('--iter_run', type=int, default=500,     help="Number of training runs")
+parser.add_argument('--model', type=str, help="Model type")
+parser.add_argument('--k',         type=int, default=500,   help="Number mixture components in MoG prior")
 
 args = parser.parse_args()
-layout = [
-    ('model={:s}',  'vae'),
-    ('z={:02d}',  args.z),
-    ('run={:04d}', args.run)
-]
+if args.model=='vae':
+    layout = [
+        ('model={:s}',  'vae'),
+        ('z={:02d}',  args.z),
+        ('run={:04d}', args.run)
+    ]
+else:
+    layout = [
+        ('model={:s}',  'gmvae'),
+        ('z={:02d}',  args.z),
+        ('k={:03d}',  args.k),
+        ('run={:04d}', args.run)
+    ]
 model_name = '_'.join([t.format(v) for (t, v) in layout])
 pprint(vars(args))
 print('Model name:', model_name)
@@ -32,20 +43,24 @@ print('Model name:', model_name)
 #device = torch.device('cpu')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 train_loader, labeled_subset, _, data_len = ut.get_mnist_data(device, use_test_subset=True)
-vae = VAE(z_dim=args.z, name=model_name).to(device)
-ut.load_model_by_name(vae, global_step=args.iter_max, device=device)
-vae.initialize_cache(train_loader, data_len)
+if args.model=='vae':
+    model = VAE(z_dim=args.z, name=model_name).to(device)
+else:
+    model = GMVAE(z_dim=args.z, k=args.k, name=model_name).to(device)
+
+ut.load_model_by_name(model, global_step=args.iter_max, device=device)
+model.initialize_cache(train_loader, data_len)
 x= labeled_subset[0].to(device)
 
 writer = None
 
-train(model=vae,
-          train_loader=train_loader,
-          labeled_subset=labeled_subset,
-          device=device,
-          tqdm=tqdm.tqdm,
-          writer=writer,
-          iter_max=args.iter_run,
-          iter_save=args.iter_save)
+train(model=model,
+        train_loader=train_loader,
+        labeled_subset=labeled_subset,
+        device=device,
+        tqdm=tqdm.tqdm,
+        writer=writer,
+        iter_max=args.iter_run,
+        iter_save=args.iter_save)
 
-ut.evaluate_lower_bound(vae, labeled_subset, run_iwae=False)
+ut.evaluate_lower_bound(model, labeled_subset, run_iwae=False)

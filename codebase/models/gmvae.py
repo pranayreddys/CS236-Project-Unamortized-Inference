@@ -15,6 +15,7 @@ class GMVAE(nn.Module):
         nn = getattr(nns, nn)
         self.enc = nn.Encoder(self.z_dim)
         self.dec = nn.Decoder(self.z_dim)
+        self.device  = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # Mixture of Gaussians prior
         self.z_pre = torch.nn.Parameter(torch.randn(1, 2 * self.k, self.z_dim)
@@ -22,7 +23,16 @@ class GMVAE(nn.Module):
         # Uniform weighting
         self.pi = torch.nn.Parameter(torch.ones(k) / k, requires_grad=False)
 
-    def negative_elbo_bound(self, x):
+    def initialize_cache(self, loader, data_len):
+        self.cache = torch.zeros(data_len, self.z_dim).to(self.device)
+        idx = 0
+        for batch, _ in loader:
+            batch = torch.bernoulli(batch.to(self.device).reshape(batch.size(0), -1))
+            with torch.no_grad():
+                self.cache[idx:idx+len(batch)], _ = self.enc(batch)
+            idx += len(batch)
+
+    def negative_elbo_bound(self, x, ind):
         """
         Computes the Evidence Lower Bound, KL and, Reconstruction costs
 
@@ -49,8 +59,39 @@ class GMVAE(nn.Module):
         # We provide the learnable prior for you. Familiarize yourself with
         # this object by checking its shape.
         prior = ut.gaussian_parameters(self.z_pre, dim=1)
-        m, v = self.enc(x)
+        m, v = ut.get_function(x, self, ind)
         z = ut.sample_gaussian(m,v)
+        kl = ut.log_normal(z,m,v)-ut.log_normal_mixture(z, prior[0], prior[1])
+        kl = kl.mean()
+        rec = -ut.log_bernoulli_with_logits(x, self.dec(z)).mean()
+        nelbo = kl + rec
+        ################################################################################
+        # End of code modification
+        ################################################################################
+        return nelbo, kl, rec
+
+    def unamortized_inference(self, x, m, v):
+        """
+        Computes the Evidence Lower Bound, KL and, Reconstruction costs
+
+        Args:
+            x: tensor: (batch, dim): Observations
+
+        Returns:
+            nelbo: tensor: (): Negative evidence lower bound
+            kl: tensor: (): ELBO KL divergence to prior
+            rec: tensor: (): ELBO Reconstruction term
+        """
+        ################################################################################
+        # TODO: Modify/complete the code here
+        # Compute negative Evidence Lower Bound and its KL and Rec decomposition
+        #
+        # Note that nelbo = kl + rec
+        #
+        # Outputs should all be scalar
+        ################################################################################
+        z = ut.sample_gaussian(m,v)
+        prior = ut.gaussian_parameters(self.z_pre, dim=1)
         kl = ut.log_normal(z,m,v)-ut.log_normal_mixture(z, prior[0], prior[1])
         kl = kl.mean()
         rec = -ut.log_bernoulli_with_logits(x, self.dec(z)).mean()
@@ -99,8 +140,21 @@ class GMVAE(nn.Module):
         ################################################################################
         return niwae, kl, rec
 
-    def loss(self, x):
-        nelbo, kl, rec = self.negative_elbo_bound(x)
+    def loss(self, x, ind):
+        nelbo, kl, rec = self.negative_elbo_bound(x, ind)
+        loss = nelbo
+
+        summaries = dict((
+            ('train/loss', nelbo),
+            ('gen/elbo', -nelbo),
+            ('gen/kl_z', kl),
+            ('gen/rec', rec),
+        ))
+
+        return loss, summaries
+    
+    def loss_unamortized(self, x, m, v):
+        nelbo, kl, rec = self.unamortized_inference(x, m, v)
         loss = nelbo
 
         summaries = dict((
