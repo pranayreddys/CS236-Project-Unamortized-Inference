@@ -1,3 +1,6 @@
 checkpoints/
 data/
-**/__pycache__/
+**/__pycache__
+**/__pycache__/**
+codebase/__pycache__/
+codebase/models/__pycache__/
