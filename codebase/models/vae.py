@@ -65,6 +65,32 @@ class VAE(nn.Module):
         ################################################################################
         return nelbo, kl, rec
     
+    def recon(self, x):
+        """
+        Computes the Evidence Lower Bound, KL and, Reconstruction costs
+
+        Args:
+            x: tensor: (batch, dim): Observations
+
+        Returns:
+            nelbo: tensor: (): Negative evidence lower bound
+            kl: tensor: (): ELBO KL divergence to prior
+            rec: tensor: (): ELBO Reconstruction term
+        """
+        ################################################################################
+        # TODO: Modify/complete the code here
+        # Compute negative Evidence Lower Bound and its KL and Rec decomposition
+        #
+        # Note that nelbo = kl + rec
+        #
+        # Outputs should all be scalar
+        ################################################################################
+        # m,v = self.enc(x)
+        m, v = ut.get_function(x, self, None)
+        kl = ut.kl_normal(m,v,self.z_prior_m, self.z_prior_v).mean()
+        z = ut.sample_gaussian(m,v)
+        return self.compute_sigmoid_given(z)
+    
     def unamortized_inference(self, x, m, v):
         """
         Computes the Evidence Lower Bound, KL and, Reconstruction costs
