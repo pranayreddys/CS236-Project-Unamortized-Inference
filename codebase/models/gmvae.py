@@ -32,7 +32,7 @@ class GMVAE(nn.Module):
                 self.cache[idx:idx+len(batch)], _ = self.enc(batch)
             idx += len(batch)
 
-    def negative_elbo_bound(self, x, ind):
+    def negative_elbo_bound(self, x, ind=None):
         """
         Computes the Evidence Lower Bound, KL and, Reconstruction costs
 
