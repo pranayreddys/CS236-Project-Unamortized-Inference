@@ -478,6 +478,15 @@ def get_svhn_data(device):
 
     return train_loader, (None, None), (None, None)
 
+def get_celeba_data(device):
+    preprocess = transforms.ToTensor()
+    train_loader = torch.utils.data.DataLoader(
+        datasets.CelebA('data', split='train', download=True, transform=preprocess),
+        batch_size=100,
+        shuffle=True)
+
+    return train_loader, (None, None), (None, None)
+
 
 def gumbel_softmax(logits, tau, eps=1e-8):
     U = torch.rand_like(logits)

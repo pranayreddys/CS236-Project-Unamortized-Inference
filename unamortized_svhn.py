@@ -25,15 +25,22 @@ print('Model name:', model_name)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 train_loader, labeled_subset, test_set = ut.get_svhn_data(device)
-fsvae = FSVAE(name=model_name).to(device)
+model = FSVAE(name=model_name).to(device)
 writer = ut.prepare_writer(model_name, overwrite_existing=args.overwrite)
+ut.load_model_by_name(model, global_step=args.iter_max, device=device)
+x= labeled_subset[0].to(device)
+writer = None
+if not args.inpainting:
+    train(model=model,
+            train_loader=train_loader,
+            labeled_subset=labeled_subset,
+            device=device,
+            tqdm=tqdm.tqdm,
+            writer=writer,
+            iter_max=args.iter_run,
+            iter_save=args.iter_save)
+    ut.evaluate_lower_bound(model, labeled_subset, run_iwae=False)
+else:
+    ut.infill(model, labeled_subset)
 
-train(model=fsvae,
-      train_loader=train_loader,
-      labeled_subset=labeled_subset,
-      device=device,
-      y_status='none',
-      tqdm=tqdm.tqdm,
-      writer=writer,
-      iter_max=args.iter_max,
-      iter_save=args.iter_save)
+#*********************
