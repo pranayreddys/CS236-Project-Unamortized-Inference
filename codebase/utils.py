@@ -28,13 +28,13 @@ bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 ################################################################################
 
 
-def gibbs_sampling(model, x, m, iter_max = 2):
+def gibbs_sampling(model, x, m, iter_max = 200):
     for i in range(iter_max):
         x_new = model.recon(x)
         x = m*x + (1-m)*x_new
         x = x.detach()
     return x
-def get_function(x, vae, idx, max_iter = 2):
+def get_function(x, vae, idx, max_iter = 100):
     with torch.no_grad():
         m,v = vae.enc(x)
         # if vae.training:
@@ -305,7 +305,7 @@ def infill(model, labeled_test_subset):
     assert check_model, "This function is only intended for VAE and GMVAE"
     xl, _ = labeled_test_subset
     xl = torch.bernoulli(xl)
-    mask = torch.zeros(28,28)
+    mask = torch.zeros(28,28).to(xl.device)
     mask[:len(mask)//2] = 1
     xl = (xl.view(-1, 28, 28) * mask.view(-1, 28,28)).view(-1, 784)
     print(xl.shape)
@@ -314,9 +314,10 @@ def infill(model, labeled_test_subset):
 
     print(sampled_images.shape)
     # sampled_images = vae.sample_x(200)
-    # sampled_images = sampled_images.reshape(200,1,28,28)
-    torchvision.utils.save_image(sampled_images, 'inpainted_images.png', nrow=20)
-    torchvision.utils.save_image(sampled_images, 'inpainted_images.png', nrow=20)
+    sampled_images = sampled_images.reshape(100,1,28,28)
+    xl = xl.reshape(100,1,28,28)
+    torchvision.utils.save_image(sampled_images, 'inpainted_images.png', nrow=10)
+    torchvision.utils.save_image(xl, 'inpainted_images_lol.png', nrow=10)
 
 
 
