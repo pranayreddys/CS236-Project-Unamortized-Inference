@@ -20,7 +20,8 @@ parser.add_argument('--run',       type=int, default=0,     help="Run ID. In cas
 parser.add_argument('--overwrite', type=int, default=0,     help="Flag for overwriting")
 parser.add_argument('--iter_run', type=int, default=500,     help="Number of training runs")
 parser.add_argument('--model', type=str, help="Model type")
-parser.add_argument('--k',         type=int, default=500,   help="Number mixture components in MoG prior")
+parser.add_argument('--k', type=int, default=500,   help="Number mixture components in MoG prior")
+parser.add_argument('--inpainting', action='store_true',    help="Number mixture components in MoG prior")
 
 args = parser.parse_args()
 if args.model=='vae':
@@ -53,14 +54,15 @@ model.initialize_cache(train_loader, data_len)
 x= labeled_subset[0].to(device)
 
 writer = None
-
-train(model=model,
-        train_loader=train_loader,
-        labeled_subset=labeled_subset,
-        device=device,
-        tqdm=tqdm.tqdm,
-        writer=writer,
-        iter_max=args.iter_run,
-        iter_save=args.iter_save)
-
-ut.evaluate_lower_bound(model, labeled_subset, run_iwae=False)
+if not args.inpainting:
+    train(model=model,
+            train_loader=train_loader,
+            labeled_subset=labeled_subset,
+            device=device,
+            tqdm=tqdm.tqdm,
+            writer=writer,
+            iter_max=args.iter_run,
+            iter_save=args.iter_save)
+    ut.evaluate_lower_bound(model, labeled_subset, run_iwae=False)
+else:
+    ut.infill(model, labeled_subset)

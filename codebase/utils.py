@@ -10,7 +10,9 @@ from codebase.models.ssvae import SSVAE
 from codebase.models.vae import VAE
 from torch.nn import functional as F
 from torchvision import datasets, transforms
+import torchvision
 from torch import optim
+import random
 
 bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 
@@ -26,8 +28,13 @@ bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 ################################################################################
 
 
-
-def get_function(x, vae, idx, max_iter = 1000):
+def gibbs_sampling(model, x, m, iter_max = 2):
+    for i in range(iter_max):
+        x_new = model.recon(x)
+        x = m*x + (1-m)*x_new
+        x = x.detach()
+    return x
+def get_function(x, vae, idx, max_iter = 2):
     with torch.no_grad():
         m,v = vae.enc(x)
         # if vae.training:
@@ -292,6 +299,25 @@ def evaluate_lower_bound(model, labeled_test_subset, run_iwae=True):
             fn = lambda x: model.negative_iwae_bound(x, iw)
             niwae, kl, rec = compute_metrics(fn, repeat)
             print("Negative IWAE-{}: {}".format(iw, niwae))
+
+def infill(model, labeled_test_subset):
+    check_model = isinstance(model, VAE) or isinstance(model, GMVAE)
+    assert check_model, "This function is only intended for VAE and GMVAE"
+    xl, _ = labeled_test_subset
+    xl = torch.bernoulli(xl)
+    mask = torch.zeros(28,28)
+    mask[:len(mask)//2] = 1
+    xl = (xl.view(-1, 28, 28) * mask.view(-1, 28,28)).view(-1, 784)
+    print(xl.shape)
+    mask = mask.view(-1, 784)
+    sampled_images = gibbs_sampling(model, xl, mask)
+
+    print(sampled_images.shape)
+    # sampled_images = vae.sample_x(200)
+    # sampled_images = sampled_images.reshape(200,1,28,28)
+    torchvision.utils.save_image(sampled_images, 'inpainted_images.png', nrow=20)
+    torchvision.utils.save_image(sampled_images, 'inpainted_images.png', nrow=20)
+
 
 
 def evaluate_classifier(model, test_set):
